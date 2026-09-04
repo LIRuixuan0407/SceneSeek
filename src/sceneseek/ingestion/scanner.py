@@ -4,7 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from sceneseek.config import Settings
-from sceneseek.domain import MediaRecord, ScanSummary
+from sceneseek.domain import ClipRecord, MediaRecord, ScanSummary
 from sceneseek.ingestion.media import (
     build_clips,
     content_hash,
@@ -52,12 +52,18 @@ class MediaScanner:
         stat = resolved.stat()
         existing = self.database.get_media_by_path(path_text)
         if existing and existing.mtime == stat.st_mtime and existing.size_bytes == stat.st_size:
-            summary.unchanged += 1
+            if existing.media_type == "video" and self._refresh_video_clips_if_needed(existing):
+                summary.updated += 1
+            else:
+                summary.unchanged += 1
             return
 
         digest = content_hash(resolved)
         duplicate = self.database.find_by_hash(digest, exclude_path=path_text)
         if duplicate is not None:
+            if existing is not None:
+                self.database.delete_media(existing.media_id)
+                self._remove_cached_media([existing.media_id])
             summary.duplicates += 1
             return
 
@@ -80,22 +86,33 @@ class MediaScanner:
             index_version=None,
         )
         if existing:
-            self.database.invalidate_media(media_id)
+            self.database.invalidate_media(media_id, drop_frame_cache=True)
             summary.updated += 1
         else:
             summary.added += 1
         self.database.upsert_media(record)
 
         if media_type == "video":
-            clips = build_clips(
-                media_id,
-                float(record.duration or 0),
-                window_seconds=self.settings.window_seconds,
-                stride_seconds=self.settings.window_stride_seconds,
-                sample_fps=self.settings.video_fps,
-                max_frames=self.settings.max_frames_per_window,
-            )
-            self.database.replace_clips(media_id, clips)
+            self.database.replace_clips(media_id, self._build_video_clips(record))
+
+    def _refresh_video_clips_if_needed(self, record: MediaRecord) -> bool:
+        expected = self._build_video_clips(record)
+        current = self.database.list_clips(record.media_id)
+        if current == expected:
+            return False
+        self.database.replace_clips(record.media_id, expected)
+        self.database.invalidate_media(record.media_id)
+        return True
+
+    def _build_video_clips(self, record: MediaRecord) -> list[ClipRecord]:
+        return build_clips(
+            record.media_id,
+            float(record.duration or 0),
+            window_seconds=self.settings.window_seconds,
+            stride_seconds=self.settings.window_stride_seconds,
+            sample_fps=self.settings.video_fps,
+            max_frames=self.settings.max_frames_per_window,
+        )
 
     def _remove_cached_media(self, media_ids: list[str]) -> None:
         thumbnail_dir = self.settings.data_dir / "cache" / "thumbnails"

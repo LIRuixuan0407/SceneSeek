@@ -57,6 +57,42 @@ CREATE TABLE IF NOT EXISTS embeddings (
 
 CREATE INDEX IF NOT EXISTS idx_embeddings_media ON embeddings(media_id);
 
+CREATE TABLE IF NOT EXISTS frame_embeddings (
+    media_id TEXT NOT NULL REFERENCES media(media_id) ON DELETE CASCADE,
+    frame_key TEXT NOT NULL,
+    timestamp REAL NOT NULL,
+    vector BLOB NOT NULL,
+    dim INTEGER NOT NULL,
+    model_version TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (media_id, frame_key, model_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_frame_embeddings_media
+ON frame_embeddings(media_id, model_version);
+
+CREATE TABLE IF NOT EXISTS queries (
+    query_id TEXT PRIMARY KEY,
+    query_text TEXT NOT NULL,
+    query_type TEXT NOT NULL CHECK(query_type IN ('text', 'image', 'composed')),
+    model_version TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS impressions (
+    query_id TEXT NOT NULL REFERENCES queries(query_id) ON DELETE CASCADE,
+    rank INTEGER NOT NULL,
+    media_id TEXT NOT NULL REFERENCES media(media_id) ON DELETE CASCADE,
+    score REAL NOT NULL,
+    start_sec REAL,
+    end_sec REAL,
+    coarse_score REAL,
+    rerank_score REAL,
+    PRIMARY KEY (query_id, rank)
+);
+
+CREATE INDEX IF NOT EXISTS idx_impressions_query ON impressions(query_id, rank);
+
 CREATE TABLE IF NOT EXISTS feedback (
     feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
     query_id TEXT NOT NULL,
@@ -210,11 +246,83 @@ class Database:
                 )
         return missing
 
-    def invalidate_media(self, media_id: str) -> None:
+    def invalidate_media(self, media_id: str, *, drop_frame_cache: bool = False) -> None:
         with self.connect() as connection:
             connection.execute("DELETE FROM embeddings WHERE media_id = ?", (media_id,))
+            if drop_frame_cache:
+                connection.execute("DELETE FROM frame_embeddings WHERE media_id = ?", (media_id,))
             connection.execute(
                 "UPDATE media SET index_version = NULL WHERE media_id = ?", (media_id,)
+            )
+
+    def delete_media(self, media_id: str) -> None:
+        with self.connect() as connection:
+            connection.execute("DELETE FROM media WHERE media_id = ?", (media_id,))
+
+    @staticmethod
+    def _frame_key(timestamp: float) -> str:
+        return f"{round(float(timestamp), 3):.3f}"
+
+    def get_frame_embeddings(
+        self, media_id: str, timestamps: Iterable[float], model_version: str
+    ) -> dict[float, np.ndarray]:
+        keys = [self._frame_key(timestamp) for timestamp in timestamps]
+        if not keys:
+            return {}
+        result: dict[float, np.ndarray] = {}
+        with self.connect() as connection:
+            for start in range(0, len(keys), 400):
+                chunk = keys[start : start + 400]
+                placeholders = ",".join("?" for _ in chunk)
+                rows = connection.execute(
+                    f"""
+                    SELECT frame_key, timestamp, vector
+                    FROM frame_embeddings
+                    WHERE media_id = ? AND model_version = ?
+                      AND frame_key IN ({placeholders})
+                    """,
+                    (media_id, model_version, *chunk),
+                ).fetchall()
+                for row in rows:
+                    result[round(float(row["timestamp"]), 3)] = np.frombuffer(
+                        row["vector"], dtype=np.float32
+                    ).copy()
+        return result
+
+    def put_frame_embeddings(
+        self,
+        media_id: str,
+        embeddings: Iterable[tuple[float, np.ndarray]],
+        model_version: str,
+    ) -> None:
+        rows: list[tuple[object, ...]] = []
+        for timestamp, vector in embeddings:
+            normalized = np.asarray(vector, dtype=np.float32).reshape(-1)
+            rounded = round(float(timestamp), 3)
+            rows.append(
+                (
+                    media_id,
+                    self._frame_key(rounded),
+                    rounded,
+                    normalized.tobytes(),
+                    normalized.size,
+                    model_version,
+                )
+            )
+        if not rows:
+            return
+        with self.connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO frame_embeddings (
+                    media_id, frame_key, timestamp, vector, dim, model_version
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(media_id, frame_key, model_version) DO UPDATE SET
+                    timestamp=excluded.timestamp,
+                    vector=excluded.vector,
+                    dim=excluded.dim
+                """,
+                rows,
             )
 
     def put_embedding(
@@ -295,6 +403,53 @@ class Database:
         for row in media:
             result[f"{row['media_type']}s"] = row["count"]
         return result
+
+    def record_query(
+        self, query_id: str, query_text: str, query_type: str, model_version: str
+    ) -> None:
+        with self.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO queries (query_id, query_text, query_type, model_version)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(query_id) DO NOTHING
+                """,
+                (query_id, query_text, query_type, model_version),
+            )
+
+    def record_impressions(self, query_id: str, results: Iterable[object]) -> None:
+        rows: list[tuple[object, ...]] = []
+        for rank, result in enumerate(results, start=1):
+            rows.append(
+                (
+                    query_id,
+                    rank,
+                    getattr(result, "media_id"),
+                    float(getattr(result, "score")),
+                    getattr(result, "start_sec"),
+                    getattr(result, "end_sec"),
+                    getattr(result, "coarse_score"),
+                    getattr(result, "rerank_score"),
+                )
+            )
+        if not rows:
+            return
+        with self.connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO impressions (
+                    query_id, rank, media_id, score, start_sec, end_sec, coarse_score, rerank_score
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(query_id, rank) DO UPDATE SET
+                    media_id=excluded.media_id,
+                    score=excluded.score,
+                    start_sec=excluded.start_sec,
+                    end_sec=excluded.end_sec,
+                    coarse_score=excluded.coarse_score,
+                    rerank_score=excluded.rerank_score
+                """,
+                rows,
+            )
 
     def add_feedback(self, query_id: str, media_id: str, relevance: int, note: str | None) -> None:
         with self.connect() as connection:

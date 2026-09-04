@@ -7,6 +7,7 @@ import math
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageOps
@@ -149,6 +150,52 @@ def load_image(path: Path) -> Image.Image:
     with Image.open(path) as source:
         return ImageOps.exif_transpose(source).convert("RGB")
 
+
+
+def extract_video_frames(
+    path: Path, timestamps: list[float] | tuple[float, ...], *, batch_size: int = 64
+) -> dict[float, Image.Image]:
+    """Decode multiple timestamps with a small number of ffmpeg processes.
+
+    Timestamps are normalized to millisecond precision so overlapping clip windows can
+    reuse the same decoded frame and cached embedding. Each chunk uses one ffmpeg input
+    process with multiple single-frame outputs rather than spawning ffmpeg per frame.
+    """
+    normalized = list(dict.fromkeys(round(max(float(value), 0.0), 3) for value in timestamps))
+    if not normalized:
+        return {}
+
+    frames: dict[float, Image.Image] = {}
+    chunk_size = max(1, batch_size)
+    for start in range(0, len(normalized), chunk_size):
+        chunk = normalized[start : start + chunk_size]
+        with tempfile.TemporaryDirectory(prefix="sceneseek-frames-") as temporary:
+            root = Path(temporary)
+            command = ["ffmpeg", "-loglevel", "error", "-i", str(path)]
+            outputs: list[Path] = []
+            for index, timestamp in enumerate(chunk):
+                output = root / f"frame-{index:04d}.png"
+                outputs.append(output)
+                command.extend(
+                    [
+                        "-ss",
+                        f"{timestamp:.3f}",
+                        "-map",
+                        "0:v:0",
+                        "-frames:v",
+                        "1",
+                        "-y",
+                        str(output),
+                    ]
+                )
+            timeout = max(45, min(240, 8 * len(chunk)))
+            subprocess.run(command, capture_output=True, check=True, timeout=timeout)
+            for timestamp, output in zip(chunk, outputs, strict=True):
+                if not output.is_file():
+                    raise ValueError(f"无法在 {timestamp:.2f}s 解码视频帧")
+                with Image.open(output) as image:
+                    frames[timestamp] = image.convert("RGB")
+    return frames
 
 def extract_video_frame(path: Path, timestamp: float) -> Image.Image:
     command = [

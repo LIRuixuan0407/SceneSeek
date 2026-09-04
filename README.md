@@ -9,13 +9,13 @@ SceneSeek 是一个本地优先的多模态图片与视频检索系统。你可�
 - 递归扫描图片和视频，使用 SHA-256 内容哈希去重。
 - SQLite 保存路径、尺寸、时长、FPS、修改时间、内容哈希与索引版本。
 - 文件变化后自动失效旧向量；文件删除时级联清理 clip 与 embedding。
-- FFmpeg / ffprobe 视频探测与抽帧。
-- 默认 4 秒 window、2 秒 stride、1 FPS 的视频短窗口索引。
+- FFmpeg / ffprobe 视频探测与批量抽帧；重叠窗口复用 frame embedding cache，避免重复解码与编码。
+- 默认 4 秒 window、2 秒 stride、1 FPS 的视频短窗口索引；采样配置变化会自动刷新 clip 并失效旧索引。
 - 文本搜图片/视频、以图搜图/视频、组合查询 API。
 - CLIP/SigLIP 兼容的 Transformers 编码器，以及无需下载模型的 CPU Lite 降级模式。
 - FAISS Flat/HNSW（安装 ML extra 后）与精确 NumPy inner-product fallback。
 - 同一视频相邻候选合并，每个视频限制重复 moment，返回 start/end/thumbnail 时间。
-- FastAPI 状态、媒体、视频片段与 relevance feedback API。
+- FastAPI 状态、媒体、视频片段与 relevance feedback API；搜索 query 与候选 impression 会一并记录，为后续 reranker/eval 留下训练上下文。
 - 响应式 React 前端，支持索引管理、搜索筛选、视频片段预览与结果反馈。
 - Railway 容器配置与 GitHub Pages 前端工作流。
 - 检索指标、moment IoU、增量扫描、索引一致性和 API 闭环测试。
@@ -79,7 +79,7 @@ export SCENESEEK_DEVICE=auto
 sceneseek build --rebuild
 ```
 
-切换模型会产生新的 `model_version`，已有媒体会进入待重建状态。若使用多语言 SigLIP 模型，只需把 `SCENESEEK_MODEL_ID` 改成对应的 Hugging Face model id 并重建。
+切换模型、采样 FPS、window/stride 或每窗口最大帧数都会产生新的 `model_version`，已有媒体会进入待重建状态。frame embedding cache 只绑定编码器与图像预处理版本，因此仅调整窗口布局时可继续复用已有帧特征。若使用多语言 SigLIP 模型，只需把 `SCENESEEK_MODEL_ID` 改成对应的 Hugging Face model id 并重建。
 
 ## 命令行
 
@@ -117,7 +117,7 @@ ruff check src tests
 cd web && npm run build
 ```
 
-测试覆盖文档要求的重复扫描、文件修改失效、删除清理、clip 边界、向量检索与 brute-force 一致性、Recall/MRR/nDCG/IoU，以及扫描到搜索的 API 路径。
+测试覆盖重复扫描、文件修改失效、删除/重复内容清理、采样配置触发 clip 刷新、frame embedding cache 复用、向量检索、Recall/MRR/nDCG/IoU，以及扫描到搜索并记录 query/impression 的 API 路径。
 
 ## 部署
 

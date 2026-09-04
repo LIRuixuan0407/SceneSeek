@@ -45,3 +45,17 @@ def test_scan_build_and_search_workflow(tmp_path: Path) -> None:
         payload = response.json()
         assert payload["results"][0]["path"].endswith("red-sunset.jpg")
         assert payload["results"][0]["thumbnail_url"].startswith("/api/media/")
+
+        with client.app.state.database.connect() as connection:
+            query_row = connection.execute(
+                "SELECT query_text, query_type, model_version FROM queries WHERE query_id = ?",
+                (payload["query_id"],),
+            ).fetchone()
+            impressions = connection.execute(
+                "SELECT rank, media_id, score FROM impressions WHERE query_id = ? ORDER BY rank",
+                (payload["query_id"],),
+            ).fetchall()
+        assert query_row is not None
+        assert query_row["query_text"] == "red sunset"
+        assert query_row["query_type"] == "text"
+        assert len(impressions) == len(payload["results"])

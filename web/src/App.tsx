@@ -285,14 +285,14 @@ function App() {
 
 function ResultCard({ result, index, onSelect }: { result: SearchResult; index: number; onSelect: (value: SearchResult) => void }) {
   const name = result.path.split(/[\\/]/).pop() || result.path
-  const scorePercent = Math.round(Math.max(0, Math.min(1, result.score)) * 100)
+  const scoreValue = result.score.toFixed(3)
   return (
     <button className="result-card" style={{ animationDelay: `${Math.min(index, 10) * 45}ms` }} onClick={() => onSelect(result)}>
       <div className="card-image">
         <img src={result.thumbnail_url} alt={name} loading="lazy" />
         <span className="type-badge">{result.media_type === 'video' ? <><Play size={12} fill="currentColor" /> 视频</> : <><ImageIcon size={12} /> 图片</>}</span>
         {result.media_type === 'video' && <span className="time-badge">{formatTime(result.start_sec)} — {formatTime(result.end_sec)}</span>}
-        <span className="score-badge">{scorePercent}%</span>
+        <span className="score-badge">{scoreValue}</span>
       </div>
       <div className="card-copy"><strong title={name}>{name}</strong><span>{result.media_type === 'video' ? `相关片段 · ${formatDuration((result.end_sec || 0) - (result.start_sec || 0))}` : `${result.width || '—'} × ${result.height || '—'}`}</span></div>
     </button>
@@ -314,7 +314,7 @@ function DetailPanel({ result, queryId, onClose }: { result: SearchResult; query
           {result.media_type === 'video' ? <video src={result.clip_url} controls autoPlay poster={result.thumbnail_url} /> : <img src={result.media_url} alt="检索结果" />}
         </div>
         {result.media_type === 'video' && <div className="moment-row"><div className="moment-icon"><Play size={16} fill="currentColor" /></div><div><span>相关时刻</span><strong>{formatTime(result.start_sec)} — {formatTime(result.end_sec)}</strong></div><div className="moment-duration">{formatDuration((result.end_sec || 0) - (result.start_sec || 0))}</div></div>}
-        <dl className="metadata-list"><div><dt>相似度</dt><dd>{(Math.max(0, Math.min(1, result.score)) * 100).toFixed(1)}%</dd></div><div><dt>媒体类型</dt><dd>{result.media_type === 'video' ? '视频片段' : '图片'}</dd></div><div><dt>分辨率</dt><dd>{result.width || '—'} × {result.height || '—'}</dd></div>{result.duration && <div><dt>完整时长</dt><dd>{formatTime(result.duration)}</dd></div>}</dl>
+        <dl className="metadata-list"><div><dt>匹配分数</dt><dd>{result.score.toFixed(3)}</dd></div><div><dt>媒体类型</dt><dd>{result.media_type === 'video' ? '视频片段' : '图片'}</dd></div><div><dt>分辨率</dt><dd>{result.width || '—'} × {result.height || '—'}</dd></div>{result.duration && <div><dt>完整时长</dt><dd>{formatTime(result.duration)}</dd></div>}</dl>
         <div className="path-block"><span>来源路径</span><code>{result.path}</code></div>
         <div className="feedback-row"><span>这个结果相关吗？</span><div><button className={rated === 3 ? 'rated' : ''} onClick={() => void sendFeedback(3)}><ThumbsUp size={17} /></button><button className={rated === 0 ? 'rated' : ''} onClick={() => void sendFeedback(0)}><ThumbsDown size={17} /></button></div></div>
       </aside>

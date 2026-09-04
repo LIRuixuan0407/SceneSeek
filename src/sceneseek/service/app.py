@@ -29,7 +29,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     encoder = create_encoder(settings)
     indexer = MediaIndexer(settings, database, encoder)
     vector_index = VectorIndex(settings.index_path, settings.index_backend)
-    retrieval = RetrievalService(settings, encoder, vector_index)
+    retrieval = RetrievalService(settings, encoder, vector_index, database)
     scanner = MediaScanner(settings, database)
     jobs = JobManager()
 

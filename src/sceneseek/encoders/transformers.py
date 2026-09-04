@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -37,8 +38,27 @@ class TransformersEncoder(Encoder):
         return l2_normalize(vector.float().cpu().numpy())
 
     def encode_image(self, image: Image.Image, context: str = "") -> np.ndarray:
-        inputs = self.processor(images=[image], return_tensors="pt")
-        inputs = {key: value.to(self.device) for key, value in inputs.items()}
-        with self._torch.inference_mode():
-            vector = self.model.get_image_features(**inputs)[0]
-        return l2_normalize(vector.float().cpu().numpy())
+        del context
+        return self.encode_images([image], batch_size=1)[0]
+
+    def encode_images(
+        self,
+        images: Sequence[Image.Image],
+        contexts: Sequence[str] | None = None,
+        *,
+        batch_size: int | None = None,
+    ) -> np.ndarray:
+        del contexts
+        if not images:
+            return np.empty((0, self.dimension), dtype=np.float32)
+        size = max(1, batch_size or len(images))
+        chunks: list[np.ndarray] = []
+        for start in range(0, len(images), size):
+            batch = list(images[start : start + size])
+            inputs = self.processor(images=batch, return_tensors="pt")
+            inputs = {key: value.to(self.device) for key, value in inputs.items()}
+            with self._torch.inference_mode():
+                vectors = self.model.get_image_features(**inputs).float().cpu().numpy()
+            normalized = np.stack([l2_normalize(vector) for vector in vectors])
+            chunks.append(normalized.astype(np.float32, copy=False))
+        return np.concatenate(chunks, axis=0)
