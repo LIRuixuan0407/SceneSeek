@@ -22,6 +22,18 @@ class Encoder(ABC):
     def encode_text(self, text: str) -> np.ndarray:
         raise NotImplementedError
 
+    def encode_texts(
+        self,
+        texts: Sequence[str],
+        *,
+        batch_size: int | None = None,
+    ) -> np.ndarray:
+        del batch_size
+        vectors = [self.encode_text(text) for text in texts]
+        if not vectors:
+            return np.empty((0, self.dimension), dtype=np.float32)
+        return np.stack(vectors).astype(np.float32, copy=False)
+
     @abstractmethod
     def encode_image(self, image: Image.Image, context: str = "") -> np.ndarray:
         raise NotImplementedError

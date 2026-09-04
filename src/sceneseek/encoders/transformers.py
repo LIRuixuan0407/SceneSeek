@@ -9,6 +9,12 @@ from PIL import Image
 from sceneseek.encoders.base import Encoder, l2_normalize
 
 
+def _feature_tensor(output: Any) -> Any:
+    """Return the projected embedding tensor across Transformers API versions."""
+    pooled = getattr(output, "pooler_output", None)
+    return pooled if pooled is not None else output
+
+
 class TransformersEncoder(Encoder):
     name = "transformers"
 
@@ -31,11 +37,27 @@ class TransformersEncoder(Encoder):
         self.dimension = int(projection or 512)
 
     def encode_text(self, text: str) -> np.ndarray:
-        inputs = self.processor(text=[text], return_tensors="pt", padding=True)
-        inputs = {key: value.to(self.device) for key, value in inputs.items()}
-        with self._torch.inference_mode():
-            vector = self.model.get_text_features(**inputs)[0]
-        return l2_normalize(vector.float().cpu().numpy())
+        return self.encode_texts([text], batch_size=1)[0]
+
+    def encode_texts(
+        self,
+        texts: Sequence[str],
+        *,
+        batch_size: int | None = None,
+    ) -> np.ndarray:
+        if not texts:
+            return np.empty((0, self.dimension), dtype=np.float32)
+        size = max(1, batch_size or len(texts))
+        chunks: list[np.ndarray] = []
+        for start in range(0, len(texts), size):
+            batch = list(texts[start : start + size])
+            inputs = self.processor(text=batch, return_tensors="pt", padding=True)
+            inputs = {key: value.to(self.device) for key, value in inputs.items()}
+            with self._torch.inference_mode():
+                vectors = _feature_tensor(self.model.get_text_features(**inputs)).float().cpu().numpy()
+            normalized = np.stack([l2_normalize(vector) for vector in vectors])
+            chunks.append(normalized.astype(np.float32, copy=False))
+        return np.concatenate(chunks, axis=0)
 
     def encode_image(self, image: Image.Image, context: str = "") -> np.ndarray:
         del context
@@ -58,7 +80,7 @@ class TransformersEncoder(Encoder):
             inputs = self.processor(images=batch, return_tensors="pt")
             inputs = {key: value.to(self.device) for key, value in inputs.items()}
             with self._torch.inference_mode():
-                vectors = self.model.get_image_features(**inputs).float().cpu().numpy()
+                vectors = _feature_tensor(self.model.get_image_features(**inputs)).float().cpu().numpy()
             normalized = np.stack([l2_normalize(vector) for vector in vectors])
             chunks.append(normalized.astype(np.float32, copy=False))
         return np.concatenate(chunks, axis=0)

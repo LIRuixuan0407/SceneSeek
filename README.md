@@ -147,3 +147,89 @@ SCENESEEK_CORS_ORIGINS=https://your-name.github.io
 ## 下一阶段
 
 P1–P4 仍需真实数据与 GPU 实验完成：MSR-VTT/Flickr baseline、Temporal Adapter 训练、Hard Negative mining、QVHighlights Moment Head、标准 moment 指标和 Reranker 质量/延迟曲线。`encoders/`、`temporal/`、`retrieval/` 与 `eval/` 已按这些阶段分离，后续实现不需要推倒 P0 产品链路。
+
+## P1：本地训练 Temporal Adapter
+
+SceneSeek 的训练设计默认把昂贵的视觉/文本 encoder 冻结，只预计算一次 frame/text embedding，再训练轻量 Temporal Adapter。这样训练阶段只读取小尺寸特征，不需要每个 epoch 重复跑 CLIP/SigLIP，适合单张消费级 GPU。
+
+### 1. 准备 benchmark manifest
+
+训练工具接受通用 JSONL，每行格式：
+
+```json
+{"sample_id":"train:video0:0","video_id":"video0","video_path":"/data/MSRVTT/video0.mp4","caption":"a person is walking","split":"train"}
+```
+
+如果使用常见的 MSR-VTT `sentences` JSON，可以先转换：
+
+```bash
+sceneseek make-msrvtt-manifest annotations/train.json /data/MSRVTT/videos manifests/train.jsonl --split train
+sceneseek make-msrvtt-manifest annotations/val.json   /data/MSRVTT/videos manifests/val.jsonl   --split val
+sceneseek make-msrvtt-manifest annotations/test.json  /data/MSRVTT/videos manifests/test.jsonl  --split test
+cat manifests/train.jsonl manifests/val.jsonl manifests/test.jsonl > manifests/all.jsonl
+```
+
+不同 MSR-VTT 发布版本的 split 约定并不完全一致，因此 SceneSeek 要求显式提供 split，不自行猜测。
+
+### 2. 预计算冻结 encoder 特征
+
+建议正式实验使用 CLIP/SigLIP，而不是 LiteEncoder：
+
+```bash
+pip install -e '.[ml,dev]'
+export SCENESEEK_ENCODER=transformers
+export SCENESEEK_MODEL_ID=openai/clip-vit-base-patch32
+export SCENESEEK_DEVICE=cuda
+
+sceneseek prepare-temporal manifests/all.jsonl data/msrvtt-features \
+  --sample-fps 1.0 \
+  --max-frames 16 \
+  --batch-size 32
+```
+
+输出目录包含共享的视频 frame embeddings、批量 text embeddings、split manifest 与 encoder metadata。一个视频有多条 caption 时不会重复保存视频特征。
+
+### 3. 先跑 mean-pooling baseline
+
+```bash
+sceneseek benchmark-temporal data/msrvtt-features --split test
+```
+
+至少记录 `R@1 / R@5 / R@10 / MRR / Median Rank`。这组数字是 Temporal Adapter 必须打败的基线。
+
+### 4. 在本地 GPU 训练 Temporal Adapter
+
+```bash
+sceneseek train-temporal data/msrvtt-features artifacts/temporal \
+  --epochs 10 \
+  --batch-size 64 \
+  --lr 3e-4 \
+  --layers 2 \
+  --heads 8 \
+  --max-frames 16 \
+  --device cuda
+```
+
+训练只更新一个小型 Temporal Transformer；CLIP/SigLIP 已经被冻结为离线特征。loss 使用 symmetric multi-positive contrastive objective，同一视频的多条 caption 不会被错误当作负样本。每轮记录 train loss 与 validation retrieval metrics，保存 `temporal-adapter.pt`、`best.pt`、`history.json` 和 `summary.json`。
+
+### 5. 评测训练后的 checkpoint
+
+```bash
+sceneseek benchmark-temporal data/msrvtt-features \
+  --split test \
+  --checkpoint artifacts/temporal/best.pt \
+  --device cuda
+```
+
+只有真实 test split 指标超过 mean-pooling baseline 后，才应该在 README 或简历里声称 Temporal Adapter 带来提升。
+
+### 6. 把 checkpoint 接回 SceneSeek 产品索引
+
+```bash
+export SCENESEEK_TEMPORAL_CHECKPOINT=$PWD/artifacts/temporal/best.pt
+sceneseek build --rebuild
+```
+
+checkpoint 内容会进入索引版本 fingerprint；更换 Temporal Adapter 会自动要求重建 clip embedding，但仍复用冻结 encoder 的 frame cache。未设置 `SCENESEEK_TEMPORAL_CHECKPOINT` 时行为与 P0.5 一致，继续使用 mean pooling。
+
+> 当前 P1 只解决 text-to-video representation learning。Hard Negative mining、QVHighlights Moment Head 和 Reranker 仍属于后续阶段，不在没有实验结果前提前包装成已完成能力。

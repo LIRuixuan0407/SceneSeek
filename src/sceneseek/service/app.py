@@ -287,5 +287,3 @@ def _mount_frontend(app: FastAPI) -> None:
             return FileResponse(requested)
         return FileResponse(web_dist / "index.html")
 
-
-app = create_app()

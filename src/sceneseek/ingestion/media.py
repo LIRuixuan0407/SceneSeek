@@ -189,13 +189,34 @@ def extract_video_frames(
                     ]
                 )
             timeout = max(45, min(240, 8 * len(chunk)))
-            subprocess.run(command, capture_output=True, check=True, timeout=timeout)
+            subprocess.run(command, capture_output=True, check=False, timeout=timeout)
             for timestamp, output in zip(chunk, outputs, strict=True):
-                if not output.is_file():
-                    raise ValueError(f"无法在 {timestamp:.2f}s 解码视频帧")
-                with Image.open(output) as image:
-                    frames[timestamp] = image.convert("RGB")
+                if output.is_file() and output.stat().st_size > 0:
+                    with Image.open(output) as image:
+                        frames[timestamp] = image.convert("RGB")
+                    continue
+                frames[timestamp] = _extract_video_frame_with_backoff(path, timestamp)
     return frames
+
+
+def _extract_video_frame_with_backoff(path: Path, timestamp: float) -> Image.Image:
+    """Retry a missing frame slightly earlier for VFR/truncated video tails."""
+    attempts = list(
+        dict.fromkeys(
+            round(max(float(timestamp) - offset, 0.0), 3)
+            for offset in (0.0, 0.05, 0.1, 0.25, 0.5, 1.0)
+        )
+    )
+    last_error: Exception | None = None
+    for candidate in attempts:
+        try:
+            return extract_video_frame(path, candidate)
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            last_error = error
+    raise ValueError(
+        f"无法在 {timestamp:.2f}s 附近解码视频帧: {path}"
+    ) from last_error
+
 
 def extract_video_frame(path: Path, timestamp: float) -> Image.Image:
     command = [

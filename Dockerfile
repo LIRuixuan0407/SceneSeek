@@ -20,5 +20,5 @@ RUN pip install --no-cache-dir .
 COPY --from=frontend /build/web/dist ./web/dist
 VOLUME ["/data"]
 EXPOSE 8000
-CMD ["uvicorn", "sceneseek.service.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "sceneseek.service.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
 

@@ -52,6 +52,13 @@ class Settings:
     max_frames_per_window: int = field(
         default_factory=lambda: _int_env("SCENESEEK_MAX_FRAMES_PER_WINDOW", 8)
     )
+    temporal_checkpoint: Path | None = field(
+        default_factory=lambda: (
+            Path(value).expanduser().resolve()
+            if (value := os.getenv("SCENESEEK_TEMPORAL_CHECKPOINT", "").strip())
+            else None
+        )
+    )
     coarse_top_k: int = field(default_factory=lambda: _int_env("SCENESEEK_COARSE_TOP_K", 200))
     allowed_roots: tuple[Path, ...] = field(default_factory=tuple)
     cors_origins: tuple[str, ...] = field(default_factory=tuple)
@@ -73,6 +80,10 @@ class Settings:
         self.encoder_batch_size = max(1, self.encoder_batch_size)
         self.video_fps = max(0.01, self.video_fps)
         self.max_frames_per_window = max(1, self.max_frames_per_window)
+        if self.temporal_checkpoint is not None and not self.temporal_checkpoint.is_file():
+            raise ValueError(
+                f"SCENESEEK_TEMPORAL_CHECKPOINT 不存在: {self.temporal_checkpoint}"
+            )
         self.data_dir.mkdir(parents=True, exist_ok=True)
         (self.data_dir / "cache" / "thumbnails").mkdir(parents=True, exist_ok=True)
         (self.data_dir / "cache" / "clips").mkdir(parents=True, exist_ok=True)
@@ -90,6 +101,13 @@ class Settings:
         requested_encoder = f"{self.encoder}:{self.model_id}"
         return self.model_version_for(requested_encoder)
 
+    @property
+    def temporal_aggregation_version(self) -> str:
+        if self.temporal_checkpoint is None:
+            return TEMPORAL_AGGREGATION_VERSION
+        digest = hashlib.sha256(self.temporal_checkpoint.read_bytes()).hexdigest()[:12]
+        return f"temporal-adapter:{digest}"
+
     def model_version_for(self, encoder_version: str) -> str:
         payload: dict[str, object] = {
             "pipeline": FEATURE_PIPELINE_VERSION,
@@ -100,7 +118,7 @@ class Settings:
             "window_seconds": self.window_seconds,
             "window_stride_seconds": self.window_stride_seconds,
             "max_frames_per_window": self.max_frames_per_window,
-            "temporal_aggregation": TEMPORAL_AGGREGATION_VERSION,
+            "temporal_aggregation": self.temporal_aggregation_version,
         }
         return f"{FEATURE_PIPELINE_VERSION}:{encoder_version}:{_fingerprint(payload)}"
 

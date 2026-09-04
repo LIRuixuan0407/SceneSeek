@@ -26,6 +26,29 @@ class MediaIndexer:
         self.encoder = encoder
         self.model_version = settings.model_version_for(encoder.version)
         self.frame_model_version = settings.frame_embedding_version_for(encoder.version)
+        self._temporal_model = None
+        self._temporal_device: str | None = None
+        if settings.temporal_checkpoint is not None:
+            from sceneseek.training.evaluate import load_temporal_checkpoint
+
+            try:
+                import torch
+            except ImportError as error:
+                raise RuntimeError(
+                    "使用 SCENESEEK_TEMPORAL_CHECKPOINT 前请安装 `pip install -e '.[ml]'`"
+                ) from error
+            device = settings.device
+            if device == "auto":
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+            self._temporal_model, _ = load_temporal_checkpoint(
+                settings.temporal_checkpoint, device
+            )
+            if self._temporal_model.config.dimension != encoder.dimension:
+                raise ValueError(
+                    "Temporal Adapter embedding 维度与当前 encoder 不一致: "
+                    f"{self._temporal_model.config.dimension} != {encoder.dimension}"
+                )
+            self._temporal_device = device
 
     def build(
         self, *, rebuild: bool = False, progress: ProgressCallback | None = None
@@ -109,7 +132,7 @@ class MediaIndexer:
 
         for clip in clips:
             vectors = [frame_vectors[round(timestamp, 3)] for timestamp in clip.sampled_frame_ts]
-            vector = l2_normalize(np.mean(np.stack(vectors), axis=0))
+            vector = self._aggregate_video_frames(vectors)
             self.database.put_embedding(
                 item_id=clip.clip_id,
                 media_id=media_id,
@@ -125,3 +148,21 @@ class MediaIndexer:
         thumbnail = self.settings.data_dir / "cache" / "thumbnails" / f"{media_id}.jpg"
         create_thumbnail(frame, thumbnail)
         return len(timestamps) - len(missing), len(missing)
+
+    def _aggregate_video_frames(self, vectors: list[np.ndarray]) -> np.ndarray:
+        stacked = np.stack(vectors).astype(np.float32, copy=False)
+        if self._temporal_model is None:
+            return l2_normalize(np.mean(stacked, axis=0))
+
+        import torch
+
+        if stacked.shape[0] > self._temporal_model.config.max_frames:
+            raise ValueError(
+                "视频窗口帧数超过 Temporal Adapter 训练上限: "
+                f"{stacked.shape[0]} > {self._temporal_model.config.max_frames}"
+            )
+        frames = torch.from_numpy(stacked).unsqueeze(0).to(self._temporal_device)
+        mask = torch.ones((1, stacked.shape[0]), dtype=torch.bool, device=self._temporal_device)
+        with torch.inference_mode():
+            encoded = self._temporal_model(frames, mask)[0].cpu().numpy()
+        return l2_normalize(encoded)
