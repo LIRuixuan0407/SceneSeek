@@ -1,0 +1,25 @@
+{
+  "device": "cuda",
+  "epochs": 10,
+  "epochs_requested": 10,
+  "epochs_completed": 9,
+  "stopped_early": true,
+  "selection_metric": "mrr",
+  "best_epoch": 6,
+  "best_val_mrr": 0.5776631096041516,
+  "best_val_metrics": {
+    "queries": 10000.0,
+    "videos": 500.0,
+    "r@1": 0.4481,
+    "r@5": 0.7353,
+    "r@10": 0.8238,
+    "mrr": 0.5776631096041516,
+    "median_rank": 2.0,
+    "mean_rank": 12.993
+  },
+  "hard_negative_index": "/home/liruixuan/SceneSeek/data/msrvtt/features-trainval/hard-negatives-train.npz",
+  "hard_negative_pool": 16,
+  "checkpoint": "/home/liruixuan/SceneSeek/artifacts/temporal-v2/temporal-adapter.pt",
+  "best_checkpoint": "/home/liruixuan/SceneSeek/artifacts/temporal-v2/best.pt",
+  "history": "/home/liruixuan/SceneSeek/artifacts/temporal-v2/history.json"
+}

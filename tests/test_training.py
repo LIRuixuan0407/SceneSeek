@@ -11,10 +11,18 @@ from sceneseek.training.data import (
     _sample_video_timestamps,
     collate_temporal_batch,
 )
-from sceneseek.training.evaluate import evaluate_mean_pooling, retrieval_metrics_from_embeddings
-from sceneseek.training.losses import multi_positive_contrastive_loss
-from sceneseek.training.temporal_adapter import TemporalAdapterConfig, create_temporal_adapter
-
+from sceneseek.training.evaluate import (
+    evaluate_mean_pooling,
+    retrieval_metrics_from_embeddings,
+)
+from sceneseek.training.losses import (
+    hard_negative_margin_loss,
+    multi_positive_contrastive_loss,
+)
+from sceneseek.training.temporal_adapter import (
+    TemporalAdapterConfig,
+    create_temporal_adapter,
+)
 
 torch = pytest.importorskip("torch")
 
@@ -90,6 +98,19 @@ def test_multi_positive_loss_does_not_treat_same_video_as_negative() -> None:
     good = multi_positive_contrastive_loss(videos, texts, ["a", "a", "b"], temperature=0.1)
     bad = multi_positive_contrastive_loss(videos, texts, ["a1", "a2", "b"], temperature=0.1)
     assert float(good) < float(bad)
+
+
+def test_hard_negative_margin_loss_rewards_positive_gap() -> None:
+    texts = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
+    positives = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
+    easy_negatives = torch.tensor([[0.0, 1.0], [1.0, 0.0]])
+    hard_negatives = torch.tensor([[0.99, 0.01], [0.01, 0.99]])
+
+    easy_loss = hard_negative_margin_loss(texts, positives, easy_negatives, margin=0.05)
+    hard_loss = hard_negative_margin_loss(texts, positives, hard_negatives, margin=0.05)
+
+    assert float(easy_loss) == pytest.approx(0.0)
+    assert float(hard_loss) > float(easy_loss)
 
 
 def test_temporal_feature_dataset_collates_variable_length(tmp_path: Path) -> None:

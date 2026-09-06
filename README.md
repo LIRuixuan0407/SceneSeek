@@ -146,7 +146,7 @@ SCENESEEK_CORS_ORIGINS=https://your-name.github.io
 
 ## 下一阶段
 
-P1–P4 仍需真实数据与 GPU 实验完成：MSR-VTT/Flickr baseline、Temporal Adapter 训练、Hard Negative mining、QVHighlights Moment Head、标准 moment 指标和 Reranker 质量/延迟曲线。`encoders/`、`temporal/`、`retrieval/` 与 `eval/` 已按这些阶段分离，后续实现不需要推倒 P0 产品链路。
+P1–P4 仍需继续用真实数据与 GPU 实验推进：Temporal Adapter/Hard Negative 的重复实验与消融、QVHighlights Moment Head、标准 moment 指标和 Reranker 质量/延迟曲线。`encoders/`、`temporal/`、`retrieval/` 与 `eval/` 已按这些阶段分离，后续实现不需要推倒 P0 产品链路。
 
 ## P1：本地训练 Temporal Adapter
 
@@ -210,7 +210,37 @@ sceneseek train-temporal data/msrvtt-features artifacts/temporal \
   --device cuda
 ```
 
-训练只更新一个小型 Temporal Transformer；CLIP/SigLIP 已经被冻结为离线特征。loss 使用 symmetric multi-positive contrastive objective，同一视频的多条 caption 不会被错误当作负样本。每轮记录 train loss 与 validation retrieval metrics，保存 `temporal-adapter.pt`、`best.pt`、`history.json` 和 `summary.json`。
+训练只更新一个小型 Temporal Transformer；CLIP/SigLIP 已经被冻结为离线特征。loss 使用 symmetric multi-positive contrastive objective，同一视频的多条 caption 不会被错误当作负样本。默认按 validation MRR 保存 `best.pt`，并在连续 3 个 epoch 没有提升后 early stop；可以用 `--selection-metric` 和 `--early-stopping-patience` 调整。每轮记录 train loss 与 validation retrieval metrics，保存 `temporal-adapter.pt`、`best.pt`、`history.json` 和 `summary.json`。
+
+#### Hard Negative v2
+
+先用冻结的 CLIP text/video 特征在完整 train 候选池中挖掘每条 caption 最相似的错误视频：
+
+```bash
+sceneseek mine-hard-negatives data/msrvtt-features \
+  --split train \
+  --top-k 16 \
+  --device cuda
+```
+
+然后让每个 batch 的一半样本由这些全局困难负样本补入；总 batch size 不变：
+
+```bash
+sceneseek train-temporal data/msrvtt-features artifacts/temporal-v2 \
+  --epochs 10 \
+  --batch-size 64 \
+  --lr 3e-4 \
+  --layers 2 \
+  --heads 8 \
+  --max-frames 16 \
+  --device cuda \
+  --selection-metric mrr \
+  --early-stopping-patience 3 \
+  --hard-negatives data/msrvtt-features/hard-negatives-train.npz \
+  --hard-negative-pool 16
+```
+
+Hard Negative index 只基于冻结 encoder 特征生成，可以跨多次 Temporal Adapter 训练复用。它的目标是把训练重点从随机容易负样本转向语义相近但视频错误的候选；是否改善 `R@1` 仍必须以 validation/test 实验为准。
 
 ### 5. 评测训练后的 checkpoint
 
@@ -232,4 +262,4 @@ sceneseek build --rebuild
 
 checkpoint 内容会进入索引版本 fingerprint；更换 Temporal Adapter 会自动要求重建 clip embedding，但仍复用冻结 encoder 的 frame cache。未设置 `SCENESEEK_TEMPORAL_CHECKPOINT` 时行为与 P0.5 一致，继续使用 mean pooling。
 
-> 当前 P1 只解决 text-to-video representation learning。Hard Negative mining、QVHighlights Moment Head 和 Reranker 仍属于后续阶段，不在没有实验结果前提前包装成已完成能力。
+> 当前 P1 已覆盖 text-to-video representation learning 与离线 Hard Negative mining；QVHighlights Moment Head 和 Reranker 仍属于后续阶段。Hard Negative 是否带来指标提升，在完成 v2 实验前不包装成已验证结果。

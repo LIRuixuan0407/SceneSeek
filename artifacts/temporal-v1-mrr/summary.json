@@ -1,0 +1,28 @@
+{
+  "device": "cuda",
+  "epochs": 10,
+  "epochs_requested": 10,
+  "epochs_completed": 8,
+  "stopped_early": true,
+  "selection_metric": "mrr",
+  "best_epoch": 5,
+  "best_val_mrr": 0.5818823233059506,
+  "best_val_metrics": {
+    "queries": 10000.0,
+    "videos": 500.0,
+    "r@1": 0.4544,
+    "r@5": 0.74,
+    "r@10": 0.8262,
+    "mrr": 0.5818823233059506,
+    "median_rank": 2.0,
+    "mean_rank": 12.874
+  },
+  "hard_negative_index": null,
+  "hard_negative_mode": null,
+  "hard_negative_pool": null,
+  "hard_negative_loss_weight": null,
+  "hard_negative_margin": null,
+  "checkpoint": "/home/liruixuan/SceneSeek/artifacts/temporal-v1-mrr/temporal-adapter.pt",
+  "best_checkpoint": "/home/liruixuan/SceneSeek/artifacts/temporal-v1-mrr/best.pt",
+  "history": "/home/liruixuan/SceneSeek/artifacts/temporal-v1-mrr/history.json"
+}

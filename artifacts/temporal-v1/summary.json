@@ -1,0 +1,9 @@
+{
+  "device": "cuda",
+  "epochs": 10,
+  "best_epoch": 6,
+  "best_val_r@10": 0.8281,
+  "checkpoint": "/home/liruixuan/SceneSeek/artifacts/temporal-v1/temporal-adapter.pt",
+  "best_checkpoint": "/home/liruixuan/SceneSeek/artifacts/temporal-v1/best.pt",
+  "history": "/home/liruixuan/SceneSeek/artifacts/temporal-v1/history.json"
+}

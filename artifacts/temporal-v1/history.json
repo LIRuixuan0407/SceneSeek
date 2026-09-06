@@ -1,0 +1,102 @@
+[
+  {
+    "epoch": 1,
+    "train_loss": 1.7287094602713713,
+    "val_r@1": 0.4256,
+    "val_r@5": 0.7234,
+    "val_r@10": 0.816,
+    "val_mrr": 0.5587067401215838,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 13.2504
+  },
+  {
+    "epoch": 2,
+    "train_loss": 1.4079653998850605,
+    "val_r@1": 0.4348,
+    "val_r@5": 0.7297,
+    "val_r@10": 0.8168,
+    "val_mrr": 0.5665355298995097,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 13.317
+  },
+  {
+    "epoch": 3,
+    "train_loss": 1.3134076000724437,
+    "val_r@1": 0.442,
+    "val_r@5": 0.7326,
+    "val_r@10": 0.8179,
+    "val_mrr": 0.5717979438697577,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 13.0168
+  },
+  {
+    "epoch": 4,
+    "train_loss": 1.2592658009810296,
+    "val_r@1": 0.4417,
+    "val_r@5": 0.7351,
+    "val_r@10": 0.821,
+    "val_mrr": 0.5720847700115662,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 13.1436
+  },
+  {
+    "epoch": 5,
+    "train_loss": 1.226080334186554,
+    "val_r@1": 0.4544,
+    "val_r@5": 0.74,
+    "val_r@10": 0.8262,
+    "val_mrr": 0.5818823233059506,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.874
+  },
+  {
+    "epoch": 6,
+    "train_loss": 1.1993967429718748,
+    "val_r@1": 0.453,
+    "val_r@5": 0.7371,
+    "val_r@10": 0.8281,
+    "val_mrr": 0.5800284060327967,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.9438
+  },
+  {
+    "epoch": 7,
+    "train_loss": 1.1794783202377526,
+    "val_r@1": 0.4529,
+    "val_r@5": 0.7404,
+    "val_r@10": 0.824,
+    "val_mrr": 0.580855704134541,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.8877
+  },
+  {
+    "epoch": 8,
+    "train_loss": 1.1653765959880276,
+    "val_r@1": 0.4537,
+    "val_r@5": 0.7412,
+    "val_r@10": 0.8236,
+    "val_mrr": 0.5807101305422296,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.9977
+  },
+  {
+    "epoch": 9,
+    "train_loss": 1.1537565589536907,
+    "val_r@1": 0.4542,
+    "val_r@5": 0.7418,
+    "val_r@10": 0.8252,
+    "val_mrr": 0.5815987134956784,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.8847
+  },
+  {
+    "epoch": 10,
+    "train_loss": 1.1441837467491187,
+    "val_r@1": 0.4477,
+    "val_r@5": 0.7425,
+    "val_r@10": 0.8261,
+    "val_mrr": 0.5784946530162544,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.756
+  }
+]

@@ -54,7 +54,9 @@ class TransformersEncoder(Encoder):
             inputs = self.processor(text=batch, return_tensors="pt", padding=True)
             inputs = {key: value.to(self.device) for key, value in inputs.items()}
             with self._torch.inference_mode():
-                vectors = _feature_tensor(self.model.get_text_features(**inputs)).float().cpu().numpy()
+                vectors = (
+                    _feature_tensor(self.model.get_text_features(**inputs)).float().cpu().numpy()
+                )
             normalized = np.stack([l2_normalize(vector) for vector in vectors])
             chunks.append(normalized.astype(np.float32, copy=False))
         return np.concatenate(chunks, axis=0)
@@ -80,7 +82,9 @@ class TransformersEncoder(Encoder):
             inputs = self.processor(images=batch, return_tensors="pt")
             inputs = {key: value.to(self.device) for key, value in inputs.items()}
             with self._torch.inference_mode():
-                vectors = _feature_tensor(self.model.get_image_features(**inputs)).float().cpu().numpy()
+                vectors = (
+                    _feature_tensor(self.model.get_image_features(**inputs)).float().cpu().numpy()
+                )
             normalized = np.stack([l2_normalize(vector) for vector in vectors])
             chunks.append(normalized.astype(np.float32, copy=False))
         return np.concatenate(chunks, axis=0)

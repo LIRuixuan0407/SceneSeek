@@ -40,9 +40,7 @@ class MediaIndexer:
             device = settings.device
             if device == "auto":
                 device = "cuda" if torch.cuda.is_available() else "cpu"
-            self._temporal_model, _ = load_temporal_checkpoint(
-                settings.temporal_checkpoint, device
-            )
+            self._temporal_model, _ = load_temporal_checkpoint(settings.temporal_checkpoint, device)
             if self._temporal_model.config.dimension != encoder.dimension:
                 raise ValueError(
                     "Temporal Adapter embedding 维度与当前 encoder 不一致: "
@@ -124,8 +122,7 @@ class MediaIndexer:
             if len(vectors) != len(missing):
                 raise ValueError("批量编码返回的向量数量与视频帧数量不一致")
             additions = [
-                (timestamp, vector)
-                for timestamp, vector in zip(missing, vectors, strict=True)
+                (timestamp, vector) for timestamp, vector in zip(missing, vectors, strict=True)
             ]
             self.database.put_frame_embeddings(media_id, additions, self.frame_model_version)
             frame_vectors.update(additions)

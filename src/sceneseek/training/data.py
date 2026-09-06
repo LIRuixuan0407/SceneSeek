@@ -25,9 +25,7 @@ def _safe_video_filename(video_id: str) -> str:
     return f"{digest}.npz"
 
 
-def _sample_video_timestamps(
-    duration: float, sample_fps: float, max_frames: int
-) -> list[float]:
+def _sample_video_timestamps(duration: float, sample_fps: float, max_frames: int) -> list[float]:
     frame_count = max(1, min(max_frames, int(np.ceil(duration * sample_fps))))
     step = duration / frame_count
     return [
@@ -207,6 +205,7 @@ def collate_temporal_batch(items: list[dict[str, object]]) -> dict[str, object]:
     frames = torch.zeros((len(items), max_steps, dimension), dtype=torch.float32)
     mask = torch.zeros((len(items), max_steps), dtype=torch.bool)
     texts = torch.zeros((len(items), dimension), dtype=torch.float32)
+    sample_ids: list[str] = []
     video_ids: list[str] = []
     for row, item in enumerate(items):
         array = np.asarray(item["frames"], dtype=np.float32)
@@ -215,5 +214,12 @@ def collate_temporal_batch(items: list[dict[str, object]]) -> dict[str, object]:
         mask[row, :steps] = True
         text = np.array(item["text"], dtype=np.float32, copy=True)
         texts[row] = torch.from_numpy(text)
+        sample_ids.append(str(item["sample_id"]))
         video_ids.append(str(item["video_id"]))
-    return {"frames": frames, "mask": mask, "texts": texts, "video_ids": video_ids}
+    return {
+        "frames": frames,
+        "mask": mask,
+        "texts": texts,
+        "sample_ids": sample_ids,
+        "video_ids": video_ids,
+    }

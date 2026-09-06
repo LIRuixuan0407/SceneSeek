@@ -81,9 +81,7 @@ class Settings:
         self.video_fps = max(0.01, self.video_fps)
         self.max_frames_per_window = max(1, self.max_frames_per_window)
         if self.temporal_checkpoint is not None and not self.temporal_checkpoint.is_file():
-            raise ValueError(
-                f"SCENESEEK_TEMPORAL_CHECKPOINT 不存在: {self.temporal_checkpoint}"
-            )
+            raise ValueError(f"SCENESEEK_TEMPORAL_CHECKPOINT 不存在: {self.temporal_checkpoint}")
         self.data_dir.mkdir(parents=True, exist_ok=True)
         (self.data_dir / "cache" / "thumbnails").mkdir(parents=True, exist_ok=True)
         (self.data_dir / "cache" / "clips").mkdir(parents=True, exist_ok=True)

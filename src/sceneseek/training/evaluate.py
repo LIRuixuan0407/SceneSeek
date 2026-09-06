@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from collections import OrderedDict
 from pathlib import Path
 
@@ -69,7 +68,9 @@ def evaluate_mean_pooling(feature_dir: Path, *, split: str = "test") -> dict[str
         frames = np.asarray(item["frames"], dtype=np.float32)
         video_ids.append(video_id)
         video_vectors.append(_normalize(frames.mean(axis=0, keepdims=True))[0])
-    texts = np.stack([np.asarray(dataset[index]["text"], dtype=np.float32) for index in range(len(dataset))])
+    texts = np.stack(
+        [np.asarray(dataset[index]["text"], dtype=np.float32) for index in range(len(dataset))]
+    )
     text_video_ids = [record.video_id for record in dataset.records]
     return retrieval_metrics_from_embeddings(
         texts,
@@ -122,7 +123,11 @@ def evaluate_temporal_checkpoint(
         arrays = [np.asarray(dataset[index]["frames"], dtype=np.float32) for _, index in batch]
         max_steps = max(array.shape[0] for array in arrays)
         dimension = arrays[0].shape[1]
-        frames = torch.zeros((len(arrays), max_steps, dimension), dtype=torch.float32, device=device)
+        frames = torch.zeros(
+            (len(arrays), max_steps, dimension),
+            dtype=torch.float32,
+            device=device,
+        )
         mask = torch.zeros((len(arrays), max_steps), dtype=torch.bool, device=device)
         for row, array in enumerate(arrays):
             steps = array.shape[0]
@@ -132,7 +137,9 @@ def evaluate_temporal_checkpoint(
             encoded = model(frames, mask).cpu().numpy()
         video_vectors.extend(encoded)
 
-    texts = np.stack([np.asarray(dataset[index]["text"], dtype=np.float32) for index in range(len(dataset))])
+    texts = np.stack(
+        [np.asarray(dataset[index]["text"], dtype=np.float32) for index in range(len(dataset))]
+    )
     text_video_ids = [record.video_id for record in dataset.records]
     return retrieval_metrics_from_embeddings(
         texts,

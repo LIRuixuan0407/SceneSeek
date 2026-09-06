@@ -424,12 +424,12 @@ class Database:
                 (
                     query_id,
                     rank,
-                    getattr(result, "media_id"),
-                    float(getattr(result, "score")),
-                    getattr(result, "start_sec"),
-                    getattr(result, "end_sec"),
-                    getattr(result, "coarse_score"),
-                    getattr(result, "rerank_score"),
+                    result.media_id,
+                    float(result.score),
+                    result.start_sec,
+                    result.end_sec,
+                    result.coarse_score,
+                    result.rerank_score,
                 )
             )
         if not rows:

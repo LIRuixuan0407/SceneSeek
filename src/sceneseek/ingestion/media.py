@@ -151,7 +151,6 @@ def load_image(path: Path) -> Image.Image:
         return ImageOps.exif_transpose(source).convert("RGB")
 
 
-
 def extract_video_frames(
     path: Path, timestamps: list[float] | tuple[float, ...], *, batch_size: int = 64
 ) -> dict[float, Image.Image]:
@@ -213,9 +212,7 @@ def _extract_video_frame_with_backoff(path: Path, timestamp: float) -> Image.Ima
             return extract_video_frame(path, candidate)
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             last_error = error
-    raise ValueError(
-        f"无法在 {timestamp:.2f}s 附近解码视频帧: {path}"
-    ) from last_error
+    raise ValueError(f"无法在 {timestamp:.2f}s 附近解码视频帧: {path}") from last_error
 
 
 def extract_video_frame(path: Path, timestamp: float) -> Image.Image:

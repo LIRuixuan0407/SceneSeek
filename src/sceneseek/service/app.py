@@ -286,4 +286,3 @@ def _mount_frontend(app: FastAPI) -> None:
         if path and requested.is_relative_to(web_dist) and requested.is_file():
             return FileResponse(requested)
         return FileResponse(web_dist / "index.html")
-

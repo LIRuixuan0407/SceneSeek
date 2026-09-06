@@ -42,9 +42,7 @@ def create_temporal_adapter(config: TemporalAdapterConfig):
             self.config = config
             self.input_norm = nn.LayerNorm(config.dimension)
             self.cls_token = nn.Parameter(torch.zeros(1, 1, config.dimension))
-            self.position = nn.Parameter(
-                torch.empty(1, config.max_frames + 1, config.dimension)
-            )
+            self.position = nn.Parameter(torch.empty(1, config.max_frames + 1, config.dimension))
             layer = nn.TransformerEncoderLayer(
                 d_model=config.dimension,
                 nhead=config.num_heads,
@@ -66,9 +64,7 @@ def create_temporal_adapter(config: TemporalAdapterConfig):
                 raise ValueError("frames 必须是 [batch, time, dim]")
             batch, steps, dim = frames.shape
             if dim != config.dimension:
-                raise ValueError(
-                    f"输入 embedding 维度为 {dim}，checkpoint 期望 {config.dimension}"
-                )
+                raise ValueError(f"输入 embedding 维度为 {dim}，checkpoint 期望 {config.dimension}")
             if steps > config.max_frames:
                 raise ValueError(
                     f"输入帧数 {steps} 超过 Temporal Adapter max_frames={config.max_frames}"

@@ -1,0 +1,92 @@
+[
+  {
+    "epoch": 1,
+    "train_loss": 1.7662353836054885,
+    "val_r@1": 0.42,
+    "val_r@5": 0.7192,
+    "val_r@10": 0.8082,
+    "val_mrr": 0.5541714446093751,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 13.5431
+  },
+  {
+    "epoch": 2,
+    "train_loss": 1.451078852769491,
+    "val_r@1": 0.4299,
+    "val_r@5": 0.7254,
+    "val_r@10": 0.815,
+    "val_mrr": 0.5624532171578907,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 13.0743
+  },
+  {
+    "epoch": 3,
+    "train_loss": 1.3573513796054175,
+    "val_r@1": 0.4347,
+    "val_r@5": 0.7339,
+    "val_r@10": 0.8184,
+    "val_mrr": 0.5677329356326019,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 13.2681
+  },
+  {
+    "epoch": 4,
+    "train_loss": 1.30649763272494,
+    "val_r@1": 0.4422,
+    "val_r@5": 0.7376,
+    "val_r@10": 0.8213,
+    "val_mrr": 0.5740493575966082,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.9761
+  },
+  {
+    "epoch": 5,
+    "train_loss": 1.2763828238925419,
+    "val_r@1": 0.4407,
+    "val_r@5": 0.7381,
+    "val_r@10": 0.8243,
+    "val_mrr": 0.5730541756967684,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 13.199
+  },
+  {
+    "epoch": 6,
+    "train_loss": 1.2517246507895374,
+    "val_r@1": 0.4481,
+    "val_r@5": 0.7353,
+    "val_r@10": 0.8238,
+    "val_mrr": 0.5776631096041516,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.993
+  },
+  {
+    "epoch": 7,
+    "train_loss": 1.2255022178996693,
+    "val_r@1": 0.4451,
+    "val_r@5": 0.7398,
+    "val_r@10": 0.8231,
+    "val_mrr": 0.5768143487314703,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.7093
+  },
+  {
+    "epoch": 8,
+    "train_loss": 1.2177799156608393,
+    "val_r@1": 0.441,
+    "val_r@5": 0.7395,
+    "val_r@10": 0.8263,
+    "val_mrr": 0.5742111854292762,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.6613
+  },
+  {
+    "epoch": 9,
+    "train_loss": 1.2052548691154406,
+    "val_r@1": 0.4413,
+    "val_r@5": 0.7402,
+    "val_r@10": 0.8191,
+    "val_mrr": 0.5731502018198497,
+    "val_median_rank": 2.0,
+    "val_mean_rank": 12.7352
+  }
+]
