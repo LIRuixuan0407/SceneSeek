@@ -10,6 +10,7 @@ class RerankerConfig:
     hidden_dimension: int = 512
     dropout: float = 0.1
     max_frames: int = 16
+    residual_scale: float = 0.05
 
     def validate(self) -> None:
         if self.dimension <= 0:
@@ -22,6 +23,8 @@ class RerankerConfig:
             raise ValueError("dropout 必须位于 [0, 1)")
         if self.max_frames <= 0:
             raise ValueError("max_frames 必须为正整数")
+        if self.residual_scale <= 0:
+            raise ValueError("residual_scale 必须大于 0")
 
     def to_dict(self) -> dict[str, int | float]:
         return asdict(self)
@@ -55,7 +58,6 @@ def create_query_conditioned_reranker(config: RerankerConfig):
                 nn.Dropout(config.dropout),
                 nn.Linear(config.hidden_dimension, 1),
             )
-            self.coarse_scale = nn.Parameter(torch.tensor(1.0))
             # Start as an identity reranker: before learning, preserve Stage-1 ordering.
             nn.init.zeros_(self.scorer[-1].weight)
             nn.init.zeros_(self.scorer[-1].bias)
@@ -105,7 +107,8 @@ def create_query_conditioned_reranker(config: RerankerConfig):
                 ),
                 dim=-1,
             )
-            delta = self.scorer(fusion).squeeze(-1)
-            return self.coarse_scale * coarse_scores + delta
+            raw_delta = self.scorer(fusion).squeeze(-1)
+            delta = config.residual_scale * torch.tanh(raw_delta)
+            return coarse_scores + delta
 
     return QueryConditionedReranker()

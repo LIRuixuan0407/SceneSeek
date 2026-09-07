@@ -21,3 +21,6 @@ web/.vite/
 .env
 .DS_Store
 Thumbs.db
+
+# Local model checkpoints
+artifacts/**/*.pt
